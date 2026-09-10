@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My AI</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Arial,sans-serif;
+  background:#f5f7fb;
+  color:#111827;
+}
+header{
+  background:#111827;
+  color:white;
+  padding:18px;
+  text-align:center;
+  font-size:24px;
+  font-weight:bold;
+}
+.subtitle{
+  font-size:13px;
+  opacity:.8;
+  margin-top:5px;
+}
+#chat{
+  min-height:65vh;
+  max-width:900px;
+  margin:auto;
+  padding:20px;
+}
+.welcome{
+  text-align:center;
+  margin-top:12vh;
+}
+.message{
+  display:flex;
+  margin:15px 0;
+}
+.user{justify-content:flex-end}
+.bubble{
+  max-width:80%;
+  padding:14px 17px;
+  border-radius:16px;
+  line-height:1.5;
+  white-space:pre-wrap;
+}
+.user .bubble{
+  background:#2563eb;
+  color:white;
+}
+.ai .bubble{
+  background:white;
+  border:1px solid #ddd;
+}
+.generated-image{
+  max-width:100%;
+  border-radius:14px;
+  margin-top:8px;
+}
+.controls{
+  max-width:900px;
+  margin:auto;
+  padding:10px;
+}
+.mode{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+}
+.mode button{
+  padding:10px 15px;
+  border-radius:10px;
+  border:1px solid #ccc;
+  background:white;
+  color:#111;
+}
+.mode button.active{
+  background:#2563eb;
+  color:white;
+}
+.input-area{
+  position:sticky;
+  bottom:0;
+  background:#f5f7fb;
+  padding:12px;
+  border-top:1px solid #ddd;
+}
+.input-box{
+  max-width:900px;
+  margin:auto;
+  display:flex;
+  gap:8px;
+}
+#question{
+  flex:1;
+  padding:14px;
+  border:1px solid #ccc;
+  border-radius:12px;
+  font-size:16px;
+}
+#send{
+  padding:0 18px;
+  border:0;
+  border-radius:12px;
+  background:#2563eb;
+  color:white;
+  font-size:16px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+?? My AI
+<div class="subtitle">Your personal AI assistant</div>
+</header>
+
+<main id="chat">
+  <div class="welcome" id="welcome">
+    <h1>Hello ??</h1>
+    <p>Ask a question or create an image.</p>
+  </div>
+</main>
+
+<div class="controls">
+  <div class="mode">
+    <button id="chatMode" class="active">?? Chat</button>
+    <button id="imageMode">?? Create Image</button>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="input-box">
+    <input id="question" placeholder="Ask your AI..." autocomplete="off">
+    <button id="send">Send</button>
+  </div>
+</div>
+
+<script>
+const chat=document.getElementById("chat");
+const question=document.getElementById("question");
+const send=document.getElementById("send");
+const welcome=document.getElementById("welcome");
+const chatMode=document.getElementById("chatMode");
+const imageMode=document.getElementById("imageMode");
+
+let mode="chat";
+
+chatMode.onclick=()=>{
+  mode="chat";
+  chatMode.classList.add("active");
+  imageMode.classList.remove("active");
+  question.placeholder="Ask your AI...";
+};
+
+imageMode.onclick=()=>{
+  mode="image";
+  imageMode.classList.add("active");
+  chatMode.classList.remove("active");
+  question.placeholder="Describe the image you want...";
+};
+
+function addMessage(text,type){
+  if(welcome) welcome.remove();
+
+  const message=document.createElement("div");
+  message.className="message "+type;
+
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
+  bubble.textContent=text;
+
+  message.appendChild(bubble);
+  chat.appendChild(message);
+  chat.scrollTop=chat.scrollHeight;
+
+  return bubble;
+}
+
+async function askAI(){
+  const text=question.value.trim();
+  if(!text) return;
+
+  addMessage(text,"user");
+  question.value="";
+  send.disabled=true;
+
+  const thinking=addMessage(
+    mode==="image" ? "?? Creating your image..." : "?? Thinking...",
+    "ai"
+  );
+
+  try{
+    const response=await fetch("/api/chat",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        message:text,
+        mode:mode
+      })
+    });
+
+    const data=await response.json();
+
+    if(!response.ok){
+      throw new Error(data.error || "Request failed");
+    }
+
+    if(mode==="image" && data.image){
+      thinking.textContent="";
+
+      const img=document.createElement("img");
+      img.src="data:image/png;base64,"+data.image;
+      img.className="generated-image";
+      img.alt="AI generated image";
+
+      thinking.appendChild(img);
+    }else{
+      thinking.textContent=data.reply || "No answer received.";
+    }
+
+  }catch(error){
+    thinking.textContent="Sorry, something went wrong: "+error.message;
+  }
+
+  send.disabled=false;
+  question.focus();
+}
+
+send.onclick=askAI;
+
+question.addEventListener("keydown",e=>{
+  if(e.key==="Enter") askAI();
+});
+</script>
+
+</body>
+</html>
